@@ -18,7 +18,7 @@ mod x11_window;
 
 use crate::{config::Config, report_client::ReportClient};
 use async_trait::async_trait;
-use std::{fmt::Display, sync::Arc};
+use std::{fmt::Display, sync::Arc, thread};
 use tokio::time::{sleep, timeout, Duration};
 
 pub enum WatcherType {
@@ -99,33 +99,30 @@ async fn filter_first_supported(
             ));
         }
         WatcherType::ActiveWindow => {
-            watch!(create_watcher::<
-                wl_foreign_toplevel_management::WindowWatcher,
-            >(
-                client,
-                "Wayland window (wlr-foreign-toplevel-management-unstable-v1)"
-            ));
-            watch!(
-                create_watcher::<wl_cosmic_toplevel_management::WindowWatcher>(
+            loop {
+                watch!(create_watcher::<
+                    wl_foreign_toplevel_management::WindowWatcher,
+                >(
                     client,
-                    "Cosmic Wayland window (cosmic-toplevel-info-unstable-v1)"
-                )
-            );
-            // XWayland gives _NET_WM_NAME on some windows in KDE, but not on others
-            #[cfg(feature = "kwin_window")]
-            watch!(create_watcher::<kwin_window::WindowWatcher>(
-                client,
-                "KWin window (script)"
-            ));
-            #[cfg(feature = "gnome")]
-            watch!(create_watcher::<gnome_window::WindowWatcher>(
-                client,
-                "Gnome window (extension)"
-            ));
-            watch!(create_watcher::<x11_window::WindowWatcher>(
-                client,
-                "X11 window"
-            ));
+                    "Wayland window (wlr-foreign-toplevel-management-unstable-v1)"
+                ));
+                // XWayland gives _NET_WM_NAME on some windows in KDE, but not on others
+                #[cfg(feature = "kwin_window")]
+                watch!(create_watcher::<kwin_window::WindowWatcher>(
+                    client,
+                    "KWin window (script)"
+                ));
+                #[cfg(feature = "gnome")]
+                watch!(create_watcher::<gnome_window::WindowWatcher>(
+                    client,
+                    "Gnome window (extension)"
+                ));
+                watch!(create_watcher::<x11_window::WindowWatcher>(
+                    client,
+                    "X11 window"
+                ));
+                thread::sleep(std::time::Duration::from_secs(60));
+            }
         }
     };
 
